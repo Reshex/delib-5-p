@@ -9,18 +9,17 @@ export function handleAddStatement(
 	message: string,
 	statement: Statement,
 	user: User | null,
-	toggleAskNotifications: () => void,
+
 ) {
 	try {
 		if (!user) throw new Error("No user");
 
 		//remove white spaces and \n
-		const title = message.split("\n")[0].trim();
+		const title = message.split("\n")[0];
 		const description = message
 			.split("\n")
 			.slice(1)
 			.join("\n")
-			.trim();
 
 		if (!title) throw new Error("No value");
 
@@ -31,7 +30,6 @@ export function handleAddStatement(
 			description,
 			parentStatement: statement,
 			statementType: StatementType.statement,
-			toggleAskNotifications,
 		});
 		if (!newStatement) throw new Error("No statement was created");
 

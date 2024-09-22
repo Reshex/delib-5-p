@@ -2,6 +2,7 @@ import {
 	Collections,
 	Role,
 	Statement,
+	StatementSchema,
 	StatementSubscription,
 	StatementSubscriptionSchema,
 	User,
@@ -60,6 +61,8 @@ export const listenToStatementSubSubscriptions = (
 				const statementSubscription =
 					change.doc.data() as StatementSubscription;
 
+				StatementSubscriptionSchema.parse(statementSubscription);
+
 				if (change.type === "added") {
 					if (firstCall) {
 						statementSubscriptions.push(statementSubscription);
@@ -73,14 +76,6 @@ export const listenToStatementSubSubscriptions = (
 				if (change.type === "modified") {
 					dispatch(setStatementSubscription(statementSubscription));
 				}
-
-				// if (change.type === "removed") {
-				//     dispatch(
-				//         deleteSubscribedStatement(
-				//             statementSubscription.statementId,
-				//         ),
-				//     );
-				// }
 			});
 			firstCall = false;
 			dispatch(setStatementsSubscription(statementSubscriptions));
@@ -108,6 +103,7 @@ export function listenToStatementSubscriptions(numberOfStatements = 30): () => v
 		return onSnapshot(q, (subscriptionsDB) => {
 			subscriptionsDB.docChanges().forEach((change) => {
 				const statementSubscription = change.doc.data() as StatementSubscription;
+				StatementSubscriptionSchema.parse(statementSubscription);
 
 				if (change.type === "added") {
 
@@ -172,6 +168,7 @@ export async function getStatmentsSubsciptions(): Promise<
 		const statementsSubscriptions: StatementSubscription[] = [];
 
 		querySnapshot.forEach((doc) => {
+			StatementSubscriptionSchema.parse(doc.data());
 			statementsSubscriptions.push(doc.data() as StatementSubscription);
 		});
 
@@ -242,7 +239,7 @@ export async function getIsSubscribed(
 }
 
 export async function getStatementSubscriptionFromDB(
-	statementSubscrionId: string,
+	statementSubscriptionId: string,
 ): Promise<StatementSubscription | undefined> {
 	try {
 		const user = store.getState().user.user;
@@ -250,23 +247,43 @@ export async function getStatementSubscriptionFromDB(
 
 
 
-		if (!statementSubscrionId)
+		if (!statementSubscriptionId)
 			throw new Error("Statement subscription id is undefined");
 
 		const subscriptionRef = doc(
 			DB,
 			Collections.statementsSubscribe,
-			statementSubscrionId,
+			statementSubscriptionId,
 		);
 		const subscriptionDB = await getDoc(subscriptionRef);
 
 		if (!subscriptionDB.exists()) return;
 
 		const subscription = subscriptionDB.data() as StatementSubscription;
+		StatementSubscriptionSchema.parse(subscription);
 
 		return subscription;
 	} catch (error) {
 		console.error(error);
+	}
+}
+
+export async function getTopParentSubscriptionFromDByStatement(statement: Statement): Promise<StatementSubscription | undefined> {
+	try {
+		const {topParentId, parentId} = statement;
+		if(parentId === "top") return undefined;
+
+		if(!topParentId) throw new Error("Top parent id is undefined");
+		const user = store.getState().user.user;
+		if (!user) throw new Error("User not logged in");
+		const topParentSubscriptionId = getStatementSubscriptionId(topParentId, user);
+		if(!topParentSubscriptionId) throw new Error("Top parent subscription id is undefined");
+		const subscription = await getStatementSubscriptionFromDB(topParentSubscriptionId);
+		
+		return subscription;
+	} catch (error) {
+		console.error(error);
+		
 	}
 }
 
@@ -300,6 +317,7 @@ export async function getTopParentSubscription(
 		const topParentSubscription = await getParentSubscription(
 			topParentSubscriptionId
 		);
+
 
 		if (topParentSubscription) {
 
@@ -355,6 +373,8 @@ export async function getTopParentSubscription(
 			topParentSubscription =
 				await getStatementSubscriptionFromDB(topParentSubscriptionId);
 		}
+		if(!topParentSubscription) throw new Error("Top parent subscription not found");
+		StatementSubscriptionSchema.parse(topParentSubscription);
 
 		return topParentSubscription;
 	}
@@ -370,7 +390,9 @@ export async function getTopParentSubscription(
 			statement = await getStatementFromDB(statementId);
 		}
 		if (!statement) throw new Error("Statement not found");
-
+		
+		StatementSchema.parse(statement);
+		
 		return statement;
 	}
 }
@@ -395,6 +417,7 @@ export function getNewStatementsFromSubscriptions(): Unsubscribe {
 		return onSnapshot(q, (subscriptionsDB) => {
 			subscriptionsDB.docChanges().forEach((change) => {
 				const statementSubscription = change.doc.data() as StatementSubscription;
+				StatementSubscriptionSchema.parse(statementSubscription);
 
 				if (change.type === "added" || change.type === "modified") {
 					dispatch(setStatementSubscription(statementSubscription));

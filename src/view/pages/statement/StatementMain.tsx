@@ -1,48 +1,46 @@
-import { FC, useEffect, useState } from 'react';
-import { createSelector } from 'reselect';
+import { FC, useEffect, useState } from "react";
+import { createSelector } from "reselect";
 
 // Third party imports
-import { useNavigate, useParams } from 'react-router-dom';
-import { User, Role, Screen } from 'delib-npm';
+import { useNavigate, useParams } from "react-router-dom";
+import { User, Role, Screen, Access } from "delib-npm";
 
 // firestore
-import { getIsSubscribed } from '@/controllers/db/subscriptions/getSubscriptions';
+import { getIsSubscribed } from "@/controllers/db/subscriptions/getSubscriptions";
 import {
 	listenToSubStatements,
 	listenToStatement,
 	listenToStatementSubscription,
-} from '@/controllers/db/statements/listenToStatements';
+} from "@/controllers/db/statements/listenToStatements";
 import {
 	updateSubscriberForStatementSubStatements,
 	setStatementSubscriptionToDB,
-} from '@/controllers/db/subscriptions/setSubscriptions';
+} from "@/controllers/db/subscriptions/setSubscriptions";
 
-import { listenToEvaluations } from '@/controllers/db/evaluation/getEvaluation';
+import { listenToEvaluations } from "@/controllers/db/evaluation/getEvaluation";
 
 // Redux Store
-import { useAppDispatch, useAppSelector } from '@/controllers/hooks/reduxHooks';
-import { statementNotificationSelector } from '@/model/statements/statementsSlice';
-import { RootState } from '@/model/store';
-import { userSelector } from '@/model/users/userSlice';
-import { useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from "@/controllers/hooks/reduxHooks";
+import { RootState } from "@/model/store";
+import { userSelector } from "@/model/users/userSlice";
+import { useSelector } from "react-redux";
 
 // Hooks & Helpers
-import { MapProvider } from '@/controllers/hooks/useMap';
-import { statementTitleToDisplay } from '@/controllers/general/helpers';
-import { availableScreen } from './StatementCont';
-import { useIsAuthorized } from '@/controllers/hooks/authHooks';
+import { MapProvider } from "@/controllers/hooks/useMap";
+import { statementTitleToDisplay } from "@/controllers/general/helpers";
+import { availableScreen } from "./StatementCont";
+import { useIsAuthorized } from "@/controllers/hooks/authHooks";
 
 // Custom components
-import LoadingPage from '../loadingPage/LoadingPage';
-import Page404 from '../page404/Page404';
-import UnAuthorizedPage from '../unAuthorizedPage/UnAuthorizedPage';
-import ProfileImage from '../../components/profileImage/ProfileImage';
-import StatementHeader from './components/header/StatementHeader';
-import SwitchScreens from './components/SwitchScreens';
-import EnableNotifications from '../../components/enableNotifications/EnableNotifications';
-import AskPermission from '@/view/components/askPermission/AskPermission';
-import FollowMeToast from './components/followMeToast/FollowMeToast';
-
+import LoadingPage from "../loadingPage/LoadingPage";
+import Page404 from "../page404/Page404";
+import UnAuthorizedPage from "../unAuthorizedPage/UnAuthorizedPage";
+import ProfileImage from "../../components/profileImage/ProfileImage";
+import StatementHeader from "./components/header/StatementHeader";
+import SwitchScreens from "./components/SwitchScreens";
+import EnableNotifications from "../../components/enableNotifications/EnableNotifications";
+import AskPermission from "@/view/components/askPermission/AskPermission";
+import FollowMeToast from "./components/followMeToast/FollowMeToast";
 
 // Create selectors
 export const subStatementsSelector = createSelector(
@@ -74,9 +72,6 @@ const StatementMain: FC = () => {
 	// Redux store
 	const dispatch = useAppDispatch();
 	const user = useSelector(userSelector);
-	const hasNotifications = useAppSelector(
-		statementNotificationSelector(statementId)
-	);
 
 	const subStatements = useAppSelector((state: RootState) =>
 		subStatementsSelector(state, statementId)
@@ -87,18 +82,12 @@ const StatementMain: FC = () => {
 	const [showAskPermission, setShowAskPermission] = useState<boolean>(false);
 	const [askNotifications, setAskNotifications] = useState(false);
 	const [isStatementNotFound, setIsStatementNotFound] = useState(false);
-	const [_, setPasswordCheck] = useState<boolean>(false)
+
+	// const [_, setPasswordCheck] = useState<boolean>(false)
 
 	// Constants
 	const screen = availableScreen(statement, statementSubscription, page);
 
-	// Functions
-	const toggleAskNotifications = () => {
-		// Ask for notifications after user interaction.
-		if (!hasNotifications && !statementSubscription?.userAskedForNotification) {
-			setAskNotifications(true);
-		}
-	};
 
 	const handleShowTalker = (_talker: User | null) => {
 		if (!talker) {
@@ -169,7 +158,10 @@ const StatementMain: FC = () => {
 			return;
 		};
 		if (statement?.topParentId) {
-			unSubscribe = listenToStatement(statement?.topParentId, setIsStatementNotFound);
+			unSubscribe = listenToStatement(
+				statement?.topParentId,
+				setIsStatementNotFound
+			);
 		}
 
 		return () => {
@@ -183,7 +175,7 @@ const StatementMain: FC = () => {
 				const isSubscribed = await getIsSubscribed(statementId);
 
 				// if isSubscribed is false, then subscribe
-				if (!isSubscribed) {
+				if (!isSubscribed && statement.membership?.access === Access.close) {
 					// subscribe
 					setStatementSubscriptionToDB(statement, Role.member);
 				} else {
@@ -196,10 +188,9 @@ const StatementMain: FC = () => {
 
 	useEffect(() => {
 		if (user?.uid === statement?.creatorId) {
-			setPasswordCheck(true);
-		}
-		else {
-			setPasswordCheck(false);
+			// setPasswordCheck(true);
+		} else {
+			// setPasswordCheck(false);
 		}
 	}, []);
 
@@ -212,7 +203,7 @@ const StatementMain: FC = () => {
 			<>
 				{/* {passwordCheck ?
 					( */}
-				<div className='page'>
+				<div className="page">
 					{showAskPermission && <AskPermission showFn={setShowAskPermission} />}
 					{talker && (
 						<button
@@ -246,10 +237,10 @@ const StatementMain: FC = () => {
 						<SwitchScreens
 							screen={screen}
 							statement={statement}
+							statementSubscription={statementSubscription}
 							subStatements={subStatements}
 							handleShowTalker={handleShowTalker}
 							setShowAskPermission={setShowAskPermission}
-							toggleAskNotifications={toggleAskNotifications}
 						/>
 					</MapProvider>
 				</div>
@@ -261,8 +252,6 @@ const StatementMain: FC = () => {
 				} */}
 			</>
 		);
-
-
 
 	return <UnAuthorizedPage />;
 };
